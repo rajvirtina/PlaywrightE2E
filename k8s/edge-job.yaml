@@ -1,0 +1,142 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# k8s/edge-job.yaml
+#
+# Kubernetes Job for running Voyix POS E2E tests on the CX7 edge cluster.
+#
+# Deploy via the helper script (handles namespace, Secret, log streaming):
+#   ./k8s/deploy.sh
+#
+# Override namespace or service name if yours differ from the defaults:
+#   NS=my-namespace ./k8s/deploy.sh
+#   NS=my-namespace APP_SVC=my-pos-service ./k8s/deploy.sh
+#
+# Defaults:
+#   NS       = nvposs
+#   APP_SVC  = nvpos-ui
+#   APP_PORT = 80
+#
+# Or apply directly (namespace must already exist with the credentials Secret):
+#   kubectl apply -f k8s/edge-job.yaml
+#   kubectl logs -f job/voyix-pos-e2e-edge -n nvposs
+# ─────────────────────────────────────────────────────────────────────────────
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: voyix-pos-e2e-edge
+  namespace: ${NS}
+  labels:
+    app: voyix-pos-tests
+    env: edge
+spec:
+  # 0 = no silent retries; a failure is reported immediately without masking
+  # the first run's logs with a second attempt.
+  backoffLimit: 0
+  ttlSecondsAfterFinished: 600
+
+  template:
+    metadata:
+      labels:
+        app: voyix-pos-tests
+        env: edge
+    spec:
+      restartPolicy: Never
+
+      # The QA job and nvpos-ui both live in the same namespace (${NS}).
+      # The internal service URL below works without hostNetwork.
+      # External fallback: http://192.168.1.11:30800/
+
+      containers:
+        - name: e2e-tests
+          # ── Pin to a specific image version — never use :latest in production.
+          # Update this tag whenever you push a new image build.
+          image: us-east1-docker.pkg.dev/ret-edge-pltf-infra/workloads/voyix-pos-tests:latest
+          # IfNotPresent: uses the locally cached image if the tag matches,
+          # avoiding a pull attempt on every run (important on flaky edge networks).
+          imagePullPolicy: IfNotPresent
+
+          # ── Override args to run a subset of tests.
+          # Uncomment ONE of the examples below, or add your own tag.
+          # After the targeted run, comment this out again to restore full suite.
+          #
+          # Run a single test case by TC ID:
+          # args: ["npm", "run", "test:e2e", "--", "--tags", "@TC-20006"]
+          #
+          # Run a single test case by JIRA ID:
+          #args: ["npm", "run", "test:e2e", "--", "--tags", "@JIRA-20006"]
+          #
+          # Run smoke suite only:
+          # args: ["npm", "run", "test:e2e", "--", "--tags", "@smoke"]
+          #
+          # Run multiple tags (AND):
+          # args: ["npm", "run", "test:e2e", "--", "--tags", "@smoke and @ac1"]
+
+          env:
+            # POS app K8s Service — same cluster, different namespace (nvpos-services).
+            # APP_NS and APP_SVC are injected by deploy.sh (envsubst).
+            # Defaults: nvpos-ui.nvpos-services.svc.cluster.local:80
+            - name: APP_URL
+              value: "http://${APP_SVC}.${APP_NS}.svc.cluster.local:${APP_PORT}/"
+
+            - name: POS_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: voyix-pos-credentials
+                  key: POS_USERNAME
+            - name: POS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: voyix-pos-credentials
+                  key: POS_PASSWORD
+            # Default POS operator credentials are 0000 / 0000.
+            # Override in the Secret if your store uses different credentials.
+
+            - name: HEADLESS
+              value: "true"
+            - name: SLOW_MO
+              value: "0"
+            # TIMEOUT_SCALE: auto-detected from process.platform (Linux=3x, Windows=1x).
+            # Uncomment to override — e.g. set to "5" for unusually slow hardware.
+            # - name: TIMEOUT_SCALE
+            #   value: "3"
+            - name: ENVIRONMENT
+              value: "edge-kubernetes"
+            - name: SLO_SCAN_MS
+              value: "500"
+            - name: SLO_DISCOUNT_DIALOG_MS
+              value: "1000"
+            - name: SLO_CHECKOUT_MS
+              value: "4000"
+
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "1Gi"
+            limits:
+              cpu: "2000m"
+              memory: "2Gi"
+
+          volumeMounts:
+            - name: reports
+              mountPath: /home/pwuser/app/reports
+
+      volumes:
+        - name: reports
+          persistentVolumeClaim:
+            claimName: voyix-pos-reports-edge
+
+---
+# ─────────────────────────────────────────────────────────────────────────────
+# PVC — apply once to persist reports between Job runs:
+#   kubectl apply -f k8s/edge-job.yaml -n nvposs
+# ─────────────────────────────────────────────────────────────────────────────
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: voyix-pos-reports-edge
+  namespace: ${NS}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi

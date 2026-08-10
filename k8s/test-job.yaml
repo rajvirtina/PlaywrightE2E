@@ -1,0 +1,106 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# k8s/test-job.yaml
+#
+# Kubernetes Job that runs the full Voyix POS E2E test suite.
+#
+# Deploy via the helper script:
+#   ./k8s/deploy.sh JOB_FILE=test-job.yaml
+#   NS=my-namespace ./k8s/deploy.sh JOB_FILE=test-job.yaml
+#
+# Or apply directly:
+#   kubectl apply -f k8s/test-job.yaml
+#   kubectl logs -f job/voyix-pos-e2e-tests -n nvposs
+# ─────────────────────────────────────────────────────────────────────────────
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: voyix-pos-e2e-tests
+  namespace: ${NS}
+  labels:
+    app: voyix-pos-tests
+    component: e2e
+spec:
+  # 0 = no silent retries; failure is reported immediately with full logs
+  backoffLimit: 0
+  ttlSecondsAfterFinished: 600
+
+  template:
+    metadata:
+      labels:
+        app: voyix-pos-tests
+        component: e2e
+    spec:
+      restartPolicy: Never
+
+      containers:
+        - name: e2e-tests
+          image: us-east1-docker.pkg.dev/ret-edge-pltf-infra/workloads/voyix-pos-tests:latest
+          imagePullPolicy: IfNotPresent
+
+          # ── Default command runs all tests.
+          # Override args here to run a subset, e.g.:
+          #   args: ["npm", "run", "test:e2e", "--", "--tags", "@NVPOS-42"]
+          # ──────────────────────────────────────────────────────────────────
+
+          env:
+            # POS app K8s Service — same cluster, same namespace.
+            # Namespace and service name injected by deploy.sh (envsubst).
+            - name: APP_URL
+              value: "http://${APP_SVC}.${NS}.svc.cluster.local:${APP_PORT}/"
+
+            # Credentials injected from a K8s Secret
+            - name: POS_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: voyix-pos-credentials
+                  key: POS_USERNAME
+            - name: POS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: voyix-pos-credentials
+                  key: POS_PASSWORD
+
+            # Always headless in a K8s pod (no display server)
+            - name: HEADLESS
+              value: "true"
+            - name: SLOW_MO
+              value: "0"
+            - name: ENVIRONMENT
+              value: "kubernetes"
+            - name: SLO_SCAN_MS
+              value: "500"
+            - name: SLO_DISCOUNT_DIALOG_MS
+              value: "1000"
+            - name: SLO_CHECKOUT_MS
+              value: "4000"
+
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "1Gi"
+            limits:
+              cpu: "2000m"
+              memory: "2Gi"
+
+          volumeMounts:
+            # Mount a PVC here to persist HTML/JSON reports after the pod exits
+            - name: reports
+              mountPath: /home/pwuser/app/reports
+
+      volumes:
+        - name: reports
+          persistentVolumeClaim:
+            claimName: voyix-pos-reports
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: voyix-pos-reports
+  namespace: ${NS}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi

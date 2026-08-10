@@ -1,0 +1,34 @@
+{
+  "items": {
+    "testItemA": {
+      "itemCode": "0000000300360",
+      "itemName": "ミディトマト",
+      "itemPrice": 179,
+      "taxRate": 10
+    },
+    "testItemB": {
+      "itemCode": "0000003060919",
+      "itemName": "菜の花つぼみ徳用",
+      "itemPrice": 179,
+      "taxRate": 10
+    },
+    "testItemC": {
+      "itemCode": "0000000300421",
+      "itemName": "長なす　２本",
+      "itemPrice": 179,
+      "taxRate": 10
+    },
+    "testItemD": {
+      "itemCode": "0000000300391",
+      "itemName": "カリーナミニトマト",
+      "itemPrice": 142,
+      "taxRate": 10
+    },
+    "testItemE": {
+      "itemCode": "0000000300124",
+      "itemName": "きゅうり　Pプラス",
+      "itemPrice": 180,
+      "taxRate": 10
+    }
+  }
+}

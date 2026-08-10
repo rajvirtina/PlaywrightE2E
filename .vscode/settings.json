@@ -1,0 +1,15 @@
+{
+    "cSpell.words": [
+        "codegen",
+        "speckit",
+        "spectest"
+    ],
+    "cucumber.features": [
+        "acceptance/features/**/*.feature"
+    ],
+    "cucumber.glue": [
+        "acceptance/steps/**/*.ts",
+        "acceptance/support/world.ts",
+        "acceptance/support/hooks.ts"
+    ]
+}

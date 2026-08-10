@@ -1,0 +1,106 @@
+﻿---
+# Source: nvpos-japan/charts/nvpos-ui/templates/automation-job.yaml
+# Playwright Automation Job
+#
+# Runs Playwright test scripts against the nvpos-ui kiosk browser.
+# Executes as a Helm hook (post-install / post-upgrade) to validate
+# the UI is working correctly after deployment.
+#
+# The Job targets the same URL the kiosk DaemonSet uses, ensuring
+# tests run against the actual hardware browser endpoint.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: nvpos-ui-automation-1
+  namespace: default
+  labels:
+    app.kubernetes.io/name: nvpos-ui
+    app.kubernetes.io/instance: test
+    app.kubernetes.io/version: "v1.0.11"
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "10"
+    "helm.sh/hook-delete-policy": before-hook-creation
+spec:
+  backoffLimit: 2
+  ttlSecondsAfterFinished: 600
+  template:
+    metadata:
+      labels:
+        app: nvpos-ui-automation
+        app.kubernetes.io/name: nvpos-ui
+        app.kubernetes.io/instance: test
+        app.kubernetes.io/version: "v1.0.11"
+        app.kubernetes.io/managed-by: Helm
+    spec:
+      restartPolicy: Never
+      imagePullSecrets:
+        - name: edge-docker-pull-secret
+
+      # Wait for the UI to be reachable before running Playwright tests
+      initContainers:
+        - name: wait-for-ui
+          image: busybox:1.36
+          command:
+            - sh
+            - -c
+            - |
+              until wget -qO- "${TARGET_URL}" >/dev/null 2>&1; do
+                echo "waiting for UI at ${TARGET_URL}..."; sleep 5;
+              done
+              echo "UI is ready at ${TARGET_URL}"
+          env:
+            - name: TARGET_URL
+              value: "http://nvpos-ui.default.svc.cluster.local/"
+
+      containers:
+        - name: playwright
+          image: "us-east1-docker.pkg.dev/ret-edge-pltf-infra/workloads/voyix-pos-tests:v1.0"
+          imagePullPolicy: IfNotPresent
+          args:
+            - npm
+            - run
+            - test:e2e
+            - --
+            - --tags
+            - '@smoke'
+          env:
+            # APP_URL for the Playwright tests (entrypoint.sh uses this to generate .env)
+            - name: APP_URL
+              value: "http://nvpos-ui.default.svc.cluster.local/"
+            # Additional environment variables for Playwright configuration
+            - name: PLAYWRIGHT_BROWSERS_PATH
+              value: "/ms-playwright"
+            - name: HEADLESS
+              value: "true"
+            - name: ENVIRONMENT
+              value: "hardware"
+            - name: POS_PASSWORD
+              value: "0000"
+            - name: POS_USERNAME
+              value: "0000"
+            - name: SEND_EMAIL
+              value: "false"
+            - name: SLOW_MO
+              value: "0"
+            - name: SLO_CHECKOUT_MS
+              value: "4000"
+            - name: SLO_DISCOUNT_DIALOG_MS
+              value: "1000"
+            - name: SLO_SCAN_MS
+              value: "500"
+          volumeMounts:
+            - name: test-results
+              mountPath: /home/pwuser/app/reports
+          resources:
+            limits:
+              cpu: 1000m
+              memory: 1Gi
+            requests:
+              cpu: 500m
+              memory: 512Mi
+
+      volumes:
+        - name: test-results
+          emptyDir: {}

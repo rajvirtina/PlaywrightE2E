@@ -1,0 +1,79 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# docker-compose.yml  —  Voyix POS E2E Tests
+#
+# Two profiles:
+#
+#   local   — POS app is running on your Windows dev machine (localhost)
+#   edge    — POS app is running on a remote edge/hardware server
+#
+# ── Usage ─────────────────────────────────────────────────────────────────────
+#
+#   # Run all tests against local POS (http://host.docker.internal:5173)
+#   docker compose --profile local up --build
+#
+#   # Run all tests against edge server (set EDGE_APP_URL first)
+#   set EDGE_APP_URL=http://192.168.1.11:30800
+#   docker compose --profile edge up --build
+#
+#   # Run only a specific tag against edge
+#   set EDGE_APP_URL=http://192.168.1.11:30800
+#   docker compose --profile edge run --rm e2e-edge \
+#     npm run test:e2e -- --tags "@NVPOS-42"
+#
+#   # Clean up containers/networks after a run
+#   docker compose down
+# ─────────────────────────────────────────────────────────────────────────────
+
+x-common: &common
+  build:
+    context: .
+    dockerfile: Dockerfile
+  image: voyix-pos-tests:latest
+  volumes:
+    # Reports land on the host so you can open them after the container exits
+    - ./reports:/home/pwuser/app/reports
+  environment:
+    HEADLESS: "true"
+    SLOW_MO: "0"
+    SLO_SCAN_MS: "${SLO_SCAN_MS:-500}"
+    SLO_DISCOUNT_DIALOG_MS: "${SLO_DISCOUNT_DIALOG_MS:-1000}"
+    SLO_CHECKOUT_MS: "${SLO_CHECKOUT_MS:-4000}"
+    SEND_EMAIL: "${SEND_EMAIL:-false}"
+    EMAIL_HOST: "${EMAIL_HOST:-}"
+    EMAIL_PORT: "${EMAIL_PORT:-587}"
+    EMAIL_USER: "${EMAIL_USER:-}"
+    EMAIL_PASS: "${EMAIL_PASS:-}"
+    EMAIL_FROM: "${EMAIL_FROM:-}"
+    EMAIL_TO: "${EMAIL_TO:-}"
+    EMAIL_SUBJECT: "${EMAIL_SUBJECT:-Voyix POS E2E Test Results}"
+
+services:
+  # ── LOCAL profile ────────────────────────────────────────────────────────────
+  # Points to the POS app running on the host machine (Windows dev box)
+  # host.docker.internal resolves to the host's IP from inside a container
+  e2e-local:
+    <<: *common
+    profiles: [local]
+    container_name: voyix-e2e-local
+    environment:
+      <<: *common
+      APP_URL: "${LOCAL_APP_URL:-http://host.docker.internal:5173/}"
+      POS_USERNAME: "${POS_USERNAME:-0000}"
+      POS_PASSWORD: "${POS_PASSWORD:-0000}"
+      ENVIRONMENT: "local-docker"
+
+  # ── EDGE profile ─────────────────────────────────────────────────────────────
+  # Points to the nvpos-ui running on the CX7 hardware via NodePort 30800.
+  # Port 5173 is the Vite dev server (local only) — use 30800 on hardware.
+  # Set EDGE_APP_URL in your shell before running, e.g.:
+  #   set EDGE_APP_URL=http://192.168.1.11:30800
+  e2e-edge:
+    <<: *common
+    profiles: [edge]
+    container_name: voyix-e2e-edge
+    environment:
+      <<: *common
+      APP_URL: "${EDGE_APP_URL:?ERROR: EDGE_APP_URL must be set, e.g. http://192.168.1.11:30800}"
+      POS_USERNAME: "${POS_USERNAME:-0000}"
+      POS_PASSWORD: "${POS_PASSWORD:-0000}"
+      ENVIRONMENT: "edge"

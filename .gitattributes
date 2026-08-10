@@ -1,0 +1,5 @@
+# Always use LF for shell scripts — CRLF breaks shebangs on Linux
+*.sh    text eol=lf
+
+# Default: normalise line endings on commit
+*       text=auto

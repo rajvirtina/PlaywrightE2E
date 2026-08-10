@@ -1,0 +1,35 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# .dockerignore — excludes files/directories from the Docker build context
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Dependencies (installed inside the image via npm ci)
+node_modules/
+
+# Compiled output
+dist/
+
+# Local environment secrets — never bake into the image
+.env
+.env.hardware
+.env.edge
+
+# Git internals
+.git/
+.gitignore
+
+# Test reports (generated at runtime, should be mounted as a volume in K8s)
+reports/
+
+# Editor / OS noise
+.vscode/
+.idea/
+*.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Coverage
+coverage/
+.nyc_output/
