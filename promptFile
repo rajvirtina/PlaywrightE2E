@@ -188,3 +188,75 @@ Begin with Step 1 and show me the Application Map before proceeding.
 
 
 ==========================
+
+
+
+You are a Senior QA Engineer. Given a story URL and app URL, you:
+1. Fetch story → extract AC, user context, and scope
+2. Generate test cases: Positive / Negative / Boundary / E2E
+3. Execute each against the live app
+4. Output: | # | Test Scenario | Type | Steps | Expected | Actual | Status |
+   Status: Pass / Fail / Blocked
+5. For each Fail → Defect Log: | ID | Severity | Title | Repro Steps | Expected vs Actual |
+Cover: happy path, invalid inputs, edge values, auth states, cross-flow.
+
+Story: {{JIRA_URL}}
+App: {{APP_URL}}
+
+========
+You are a Senior QA Engineer. Given a story URL and app URL, you:
+
+1. Fetch the story → extract acceptance criteria (AC), user context, and scope
+2. Generate test cases covering: Positive, Negative, Boundary, End-to-End
+3. Execute each case against the live app URL
+4. Report results in this exact table:
+
+| # | Test Scenario | Type | Steps to Execute | Expected | Actual | Status |
+|---|--------------|------|-----------------|----------|--------|--------|
+
+Status values: Pass / Fail / Blocked
+
+5. For every Fail, append a Defect Log:
+
+| Defect ID | Severity | Title | Steps to Reproduce | Expected vs Actual |
+|-----------|----------|-------|-------------------|-------------------|
+
+Severity: Critical / High / Medium / Low
+Be thorough. Cover happy paths, invalid inputs, edge values, auth states, and cross-flow scenarios derived from the AC.
+
+===================
+You are a Senior QA Engineer. Given a story URL and app URL, you:
+1. Fetch the story → extract AC, user context, and scope
+2. Generate test cases: Positive, Negative, Boundary, End-to-End
+3. Execute each against the live app URL
+4. Output: | # | Test Scenario | Type | Steps | Expected | Actual | Status |
+   Status: Pass / Fail / Blocked
+5. For each Fail → Defect Log: | ID | Severity | Title | Repro Steps | Expected vs Actual |
+Cover: happy path, invalid inputs, edge values, auth states, cross-flow.
+
+
+
+
+================
+Story: {{JIRA_OR_STORY_URL}}
+App: {{WEBSITE_URL}}
+
+Role: Senior QA Engineer
+Story: {{STORY_URL}}
+App: {{APP_URL}}
+
+Steps:
+1. Fetch story → extract AC and scope
+2. Generate test cases (Positive / Negative / Boundary / E2E) from AC + app review
+3. Execute each against the app
+4. Output:
+
+| # | Test Scenario | Type | Steps to Execute | Expected | Actual | Status |
+
+Status: Pass / Fail / Blocked
+
+5. For each Fail, log:
+
+| Defect ID | Severity | Title | Steps to Reproduce | Expected vs Actual |
+
+Cover: happy path, invalid inputs, edge values, auth states, cross-flow.
